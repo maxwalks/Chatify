@@ -1,7 +1,10 @@
 interface Message {
-  message?: string;
+  message: string;
   sender: string;
-  text: string;
+  room?: string | number;
+  userId?: string;
+  timestamp?: string;
+  messageId?: string;
 }
 
 export default Message

@@ -1,24 +1,37 @@
 import { db } from "@/lib/firebase";
-import { collection, addDoc, getDocs, query } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, orderBy, Timestamp } from "firebase/firestore";
 import { Message } from "@types"
 
 export async function fetchMessages(roomId: number) {
   try {
-    const q = query(collection(db, "rooms", roomId.toString(), "messages"));
+    const q = query(
+      collection(db, "rooms", roomId.toString(), "messages"),
+      orderBy("timestamp", "asc")
+    );
+    
     const snapshot = await getDocs(q);
-    const messages = snapshot.docs.map((doc) => ({
-      sender: doc.data().sender,
-      message: doc.data().text,
-    })) as Message[];
-
+    const messages = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        message: data.text,
+        sender: data.sender,
+        timestamp: data.timestamp?.toDate().toISOString(),
+        room: roomId
+      } as Message;
+    });
+    
     return messages;
   } catch (error) {
-    console.error(error);
+    console.error("Error fetching messages:", error);
     return [];
   }
 }
 
-export async function sendMessage(message: string, roomId: number) {
+export async function sendMessage(
+  message: string, 
+  roomId: number, 
+  sender: string,
+) {
   try {
     const messagesCollection = collection(
       db,
@@ -26,11 +39,17 @@ export async function sendMessage(message: string, roomId: number) {
       roomId.toString(),
       "messages"
     );
+    
     await addDoc(messagesCollection, {
-      sender: "test",
+      sender,
       text: message,
+      timestamp: Timestamp.now(),
+      room: roomId
     });
+    
+    return true;
   } catch (error) {
-    console.error(error);
+    console.error("Error sending message:", error);
+    return false;
   }
 }
