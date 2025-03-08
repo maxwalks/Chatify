@@ -6,7 +6,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DoorOpen, ArrowRight, History, Plus, MessageSquare } from "lucide-react";
+import { ArrowRight, History, Plus, MessageSquare } from "lucide-react";
 
 export default function SelectRoom() {
   const [room, setRoom] = useState("");

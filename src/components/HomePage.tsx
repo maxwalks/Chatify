@@ -1,5 +1,5 @@
 "use client";
-import { io } from "socket.io-client";
+import { io, Socket } from "socket.io-client";
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,12 +10,11 @@ import { sendMessage, fetchMessages } from "@/app/actions";
 import { useQuery } from "@tanstack/react-query";
 import { Message } from "@types"
 import { useUser } from "@clerk/nextjs";
-import { Send, ArrowLeft, Settings, Moon, Sun, AlertCircle, ShieldCheck } from "lucide-react";
+import { Send, ArrowLeft, Moon, Sun, AlertCircle, ShieldCheck, Wifi, WifiOff } from "lucide-react";
 import { nanoid } from "nanoid"
 import { format } from "date-fns";
 import {
   SignInButton,
-  SignUpButton,
   SignedIn,
   SignedOut,
   UserButton,
@@ -27,6 +26,40 @@ interface HomePagePropTypes {
   roomId: number
 }
 
+// Define a proper type for the Socket
+interface ClientToServerEvents {
+  join_room: (data: { roomId: number; user: string }) => void;
+  send_message: (data: { message: string; room: number | null; messageId: string }) => void;
+}
+
+interface ServerToClientEvents {
+  recieved_message: (data: Message) => void;
+  user_join: (data: { username: string; roomId: number }) => void;
+}
+
+const ConnectionStatus = ({ isConnected, onClick }: { isConnected: boolean, onClick: () => void }) => {
+  return (
+    <Button 
+      variant="ghost" 
+      size="sm" 
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-2 py-1 h-auto ${isConnected ? 'text-green-500' : 'text-red-500'}`}
+    >
+      {isConnected ? (
+        <>
+          <Wifi className="h-3.5 w-3.5" />
+          <span className="text-xs">Connected</span>
+        </>
+      ) : (
+        <>
+          <WifiOff className="h-3.5 w-3.5" />
+          <span className="text-xs">Disconnected</span>
+        </>
+      )}
+    </Button>
+  );
+};
+
 export default function HomePage(props: HomePagePropTypes) {
   const [message, setMessage] = useState("");
   const [messageList, setMessageList] = useState<Message[]>([]);
@@ -35,10 +68,11 @@ export default function HomePage(props: HomePagePropTypes) {
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessageTime, setLastMessageTime] = useState(0);
   const [rateLimited, setRateLimited] = useState(false);
-  const [socket, setSocket] = useState<any>(null);
+  const [socket, setSocket] = useState<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null);
   const { user } = useUser();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
   
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -117,7 +151,7 @@ export default function HomePage(props: HomePagePropTypes) {
         setTimeout(scrollToBottom, 100);
       });
     }
-  }, [messageList]);
+  }, [messageList, messageList.length]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -136,7 +170,7 @@ export default function HomePage(props: HomePagePropTypes) {
       window.removeEventListener('resize', handleResize);
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [messageList.length]);
 
   useEffect(() => {
     if (!socket) return;
@@ -472,7 +506,7 @@ export default function HomePage(props: HomePagePropTypes) {
         {rateLimited && (
           <p className="text-xs text-yellow-500 mt-1 flex items-center">
             <AlertCircle className="h-3 w-3 mr-1" />
-            Slow down! You're sending messages too quickly.
+            Slow down! You&apos;re sending messages too quickly.
           </p>
         )}
         {!isConnected && (
